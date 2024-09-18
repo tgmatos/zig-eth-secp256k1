@@ -5,22 +5,23 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
 
     // libsecp256k1 static C library.
-    const libsecp256k1 = b.addStaticLibrary(.{
-        .name = "secp256k1",
-        .target = target,
-        .optimize = optimize,
-    });
-    libsecp256k1.addIncludePath(b.path("libsecp256k1"));
-    libsecp256k1.addIncludePath(b.path("libsecp256k1/src"));
-    libsecp256k1.defineCMacro("USE_FIELD_10X26", "1");
-    libsecp256k1.defineCMacro("USE_SCALAR_8X32", "1");
-    libsecp256k1.defineCMacro("USE_ENDOMORPHISM", "1");
-    libsecp256k1.defineCMacro("USE_NUM_NONE", "1");
-    libsecp256k1.defineCMacro("USE_FIELD_INV_BUILTIN", "1");
-    libsecp256k1.defineCMacro("USE_SCALAR_INV_BUILTIN", "1");
-    libsecp256k1.addCSourceFile(.{ .file = b.path("ext.c"), .flags = &[0][]const u8{} });
-    libsecp256k1.linkLibC();
-    b.installArtifact(libsecp256k1);
+    // const libsecp256k1 = b.addStaticLibrary(.{
+    //     .name = "secp256k1",
+    //     .target = target,
+    //     .optimize = optimize,
+    // });
+    // libsecp256k1.addIncludePath(b.path("libsecp256k1"));
+    // libsecp256k1.addIncludePath(b.path("libsecp256k1/src"));
+    // libsecp256k1.defineCMacro("USE_FIELD_10X26", "1");
+    // libsecp256k1.defineCMacro("USE_SCALAR_8X32", "1");
+    // libsecp256k1.defineCMacro("USE_ENDOMORPHISM", "1");
+    // libsecp256k1.defineCMacro("USE_NUM_NONE", "1");
+    // libsecp256k1.defineCMacro("USE_FIELD_INV_BUILTIN", "1");
+    // libsecp256k1.defineCMacro("USE_SCALAR_INV_BUILTIN", "1");
+    // libsecp256k1.defineCMacro("DUSE_SECP256K1_BUILD", "1");
+    // libsecp256k1.addCSourceFile(.{ .file = b.path("ext.c"), .flags = &[0][]const u8{} });
+    // libsecp256k1.linkLibC();
+    // b.installArtifact(libsecp256k1);
 
     // Run command.
     const exe = b.addExecutable(.{
@@ -29,9 +30,11 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    exe.addCSourceFile(.{ .file = b.path("ext.c"), .flags = &[0][]const u8{} });
     exe.addIncludePath(b.path("."));
-    exe.addIncludePath(b.path("libsecp256k1"));
-    exe.linkLibrary(libsecp256k1);
+    //exe.addIncludePath(b.path("libsecp256k1"));
+    exe.linkLibC();
+    exe.linkSystemLibrary("secp256k1");
 
     const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());
@@ -50,8 +53,8 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     main_tests.addIncludePath(b.path("."));
-    main_tests.addIncludePath(b.path("libsecp256k1"));
-    main_tests.linkLibrary(libsecp256k1);
+    // main_tests.addIncludePath(b.path("libsecp256k1"));
+    // main_tests.linkLibrary(libsecp256k1);
 
     const run_main_tests = b.addRunArtifact(main_tests);
 

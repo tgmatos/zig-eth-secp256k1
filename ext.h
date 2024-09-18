@@ -1,5 +1,7 @@
-#include "include/secp256k1.h"
-#include "include/secp256k1_recovery.h"
+#include <secp256k1.h>
+//#include "libsecp256k1/include/secp256k1.h"
+#include <secp256k1_recovery.h>
+#include <stdlib.h>
 
 // Copyright 2015 Jeffrey Wilcke, Felix Lange, Gustav Simonsson. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be found in

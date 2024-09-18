@@ -1,15 +1,35 @@
-#include "include/secp256k1_recovery.h"
-#include "secp256k1.c"
-#include "modules/recovery/main_impl.h"
+#define SECP256K1_BUILD
+#include <stdlib.h>
+#include <secp256k1_recovery.h>
+#include <secp256k1.h>
+#include <secp256k1.h>
+#include <string.h>
+#include <assert.h>
+#include <sys/random.h>
 
 // Copyright 2015 Jeffrey Wilcke, Felix Lange, Gustav Simonsson. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be found in
 // the LICENSE file.
 
+static int fill_random(unsigned char* data, size_t size) {
+  ssize_t res = getrandom(data, size, 0);
+  if (res < 0 || (size_t)res != size ) {
+    return 0;
+  } else {
+    return 1;
+  }
+}
+
 // secp256k1_context_create_sign_verify creates a context for signing and signature verification.
 secp256k1_context *secp256k1_context_create_sign_verify()
 {
-    return secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
+  unsigned char randomize[32];
+  secp256k1_context* ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
+
+  if(!fill_random(randomize, sizeof(randomize))) {return NULL;}
+  int return_val = secp256k1_context_randomize(ctx, randomize);
+  assert(return_val);
+  return ctx;
 }
 
 // secp256k1_ext_ecdsa_recover recovers the public key of an encoded compact signature.
@@ -108,37 +128,36 @@ int secp256k1_ext_reencode_pubkey(
 //  In:     point:    pointer to a 64-byte public point,
 //                    encoded as two 256bit big-endian numbers.
 //          scalar:   a 32-byte scalar with which to multiply the point
-int secp256k1_ext_scalar_mul(const secp256k1_context *ctx, unsigned char *point, const unsigned char *scalar)
-{
+int secp256k1_ext_scalar_mul(const secp256k1_context *ctx, unsigned char *point, const unsigned char *scalar) {
     int ret = 0;
-    int overflow = 0;
-    secp256k1_fe feX, feY;
-    secp256k1_gej res;
-    secp256k1_ge ge;
-    secp256k1_scalar s;
-    ARG_CHECK(point != NULL);
-    ARG_CHECK(scalar != NULL);
-    (void)ctx;
+    secp256k1_pubkey pubkey;
 
-    secp256k1_fe_set_b32(&feX, point);
-    secp256k1_fe_set_b32(&feY, point + 32);
-    secp256k1_ge_set_xy(&ge, &feX, &feY);
-    secp256k1_scalar_set_b32(&s, scalar, &overflow);
-    if (overflow || secp256k1_scalar_is_zero(&s))
-    {
-        ret = 0;
+    assert(ctx != NULL);
+    assert(point != NULL);
+    assert(scalar != NULL);
+
+    // Check if scalar is zero
+    int is_zero = 1;
+    for (int i = 0; i < 32; i++) {
+        if (scalar[i] != 0) {
+            is_zero = 0;
+            break;
+        }
     }
-    else
-    {
-        secp256k1_ecmult_const(&res, &ge, &s);
-        secp256k1_ge_set_gej(&ge, &res);
-        /* Note: can't use secp256k1_pubkey_save here because it is not constant time. */
-        secp256k1_fe_normalize(&ge.x);
-        secp256k1_fe_normalize(&ge.y);
-        secp256k1_fe_get_b32(point, &ge.x);
-        secp256k1_fe_get_b32(point + 32, &ge.y);
-        ret = 1;
+    if (is_zero) {
+        return 0;
     }
-    secp256k1_scalar_clear(&s);
+
+    if (!secp256k1_ec_pubkey_parse(ctx, &pubkey, point, 64)) {
+        return 0;
+    }
+
+    if (secp256k1_ec_pubkey_tweak_mul(ctx, &pubkey, scalar)) {
+        size_t output_len = 64;
+        if (secp256k1_ec_pubkey_serialize(ctx, point, &output_len, &pubkey, SECP256K1_EC_UNCOMPRESSED)) {
+            ret = 1;
+        }
+    }
+
     return ret;
 }
